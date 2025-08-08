@@ -42,8 +42,6 @@
     </div>
 
     <script>
-        // --- TOUT LE CODE EST MAINTENANT DANS CET ÉVÉNEMENT ---
-        // On attend que le DOM (la page) soit entièrement chargé avant d'exécuter le code.
         window.addEventListener('DOMContentLoaded', () => {
             const awsconfig = {
                 Auth: {
@@ -63,7 +61,7 @@
                 }
             };
             
-            const { Amplify, Auth } = aws_amplify; // Ce nom est correct maintenant
+            // On utilise directement l'objet global "Amplify" fourni par le script
             Amplify.configure(awsconfig);
 
             const mainContent = document.getElementById('main-content');
@@ -73,23 +71,27 @@
 
             const checkUser = async () => {
                 try {
-                    const session = await Auth.fetchAuthSession();
+                    const session = await Amplify.Auth.fetchAuthSession();
                     if (session.tokens) {
-                        const userInfo = await Auth.getCurrentUser();
+                        const userInfo = await Amplify.Auth.getCurrentUser();
                         console.log('Utilisateur connecté:', userInfo);
                         welcomeMessage.textContent = `Bienvenue, ${userInfo.username}`;
                         loadingDiv.style.display = 'none';
                         mainContent.style.display = 'block';
+                    } else {
+                       // Ce cas peut arriver si la session est invalide mais pas d'erreur lancée
+                       console.log('Session invalide, redirection...');
+                       Amplify.Auth.signInWithRedirect();
                     }
                 } catch (error) {
                     console.log('Utilisateur non connecté, redirection...', error);
-                    Auth.signInWithRedirect();
+                    Amplify.Auth.signInWithRedirect();
                 }
             };
             
             signOutButton.addEventListener('click', async () => {
                 try {
-                    await Auth.signOut();
+                    await Amplify.Auth.signOut();
                 } catch (error) {
                     console.error('Erreur lors de la déconnexion:', error);
                 }
@@ -104,15 +106,53 @@
             const resultsDiv = document.getElementById('results');
 
             async function searchPlaque() {
-                // ...
+                const plaque = plaqueInput.value.trim().toUpperCase();
+                if (!plaque) {
+                    alert('Veuillez entrer un numéro de plaque.');
+                    return;
+                }
+                resultsDiv.innerHTML = `<div class="d-flex justify-content-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>`;
+                try {
+                    const response = await fetch(`${apiUrl}/vehicule/${plaque}`);
+                    const data = await response.json();
+                    if (response.ok) {
+                        displaySuccess(data);
+                    } else {
+                        displayError(data.message);
+                    }
+                } catch (error) {
+                    console.error('Erreur réseau:', error);
+                    displayError('Erreur de connexion au serveur.');
+                }
             }
             
             function displaySuccess(data) {
-                 // ...
+                resultsDiv.innerHTML = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Véhicule</h5>
+                            <ul class="list-group">
+                                <li class="list-group-item"><strong>Plaque:</strong> ${data.vehicule.plaque_immatriculation}</li>
+                                <li class="list-group-item"><strong>Type:</strong> ${data.vehicule.type_engin}</li>
+                                <li class="list-group-item"><strong>Marque:</strong> ${data.vehicule.marque} ${data.vehicule.modele}</li>
+                                <li class="list-group-item"><strong>Statut:</strong> <span class="badge bg-success">${data.vehicule.statut}</span></li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Propriétaire</h5>
+                            <ul class="list-group">
+                                <li class="list-group-item"><strong>Nom:</strong> ${data.proprietaire.nom} ${data.proprietaire.prenoms}</li>
+                                <li class="list-group-item"><strong>Téléphone:</strong> ${data.proprietaire.telephone}</li>
+                                <li class="list-group-item"><strong>Adresse:</strong> ${data.proprietaire.adresse}</li>
+                                <li class="list-group-item"><strong>Profession:</strong> ${data.proprietaire.profession}</li>
+                            </ul>
+                        </div>
+                    </div>
+                `;
             }
 
             function displayError(message) {
-                 // ...
+                resultsDiv.innerHTML = `<div class="alert alert-danger text-center">${message}</div>`;
             }
 
             searchButton.addEventListener('click', searchPlaque);
