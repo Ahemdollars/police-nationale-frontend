@@ -60,9 +60,8 @@
                 }
             }
         };
-
-        // On utilise la nouvelle syntaxe aws_amplify
-        const { Amplify, Auth } = aws_amplify;
+        
+        // CORRECTION ICI : On utilise directement l'objet global "Amplify"
         Amplify.configure(awsconfig);
 
         const mainContent = document.getElementById('main-content');
@@ -73,9 +72,10 @@
         // Fonction pour vérifier l'utilisateur au chargement
         const checkUser = async () => {
             try {
-                const user = await Auth.fetchAuthSession();
-                if (user.tokens) {
-                    const userInfo = await Auth.getCurrentUser();
+                // CORRECTION ICI : on utilise Amplify.Auth
+                const session = await Amplify.Auth.fetchAuthSession();
+                if (session.tokens) {
+                    const userInfo = await Amplify.Auth.getCurrentUser();
                     console.log('Utilisateur connecté:', userInfo);
                     welcomeMessage.textContent = `Bienvenue, ${userInfo.username}`;
                     loadingDiv.style.display = 'none';
@@ -83,20 +83,21 @@
                 }
             } catch (error) {
                 console.log('Utilisateur non connecté, redirection...', error);
-                Auth.signInWithRedirect();
+                // CORRECTION ICI : on utilise Amplify.Auth
+                Amplify.Auth.signInWithRedirect();
             }
         };
         
         // Gère la déconnexion
         signOutButton.addEventListener('click', async () => {
             try {
-                await Auth.signOut();
+                // CORRECTION ICI : on utilise Amplify.Auth
+                await Amplify.Auth.signOut();
             } catch (error) {
                 console.error('Erreur lors de la déconnexion:', error);
             }
         });
         
-        // On appelle la vérification au chargement
         checkUser();
 
         // --- Le reste du code de recherche est ici (inchangé) ---
