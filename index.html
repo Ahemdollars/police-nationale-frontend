@@ -42,89 +42,86 @@
     </div>
 
     <script>
-        // --- CONFIGURATION D'AMPLIFY ---
-        const awsconfig = {
-            Auth: {
-                Cognito: {
-                    userPoolId: "eu-west-3_nHShJr8AI", // REMPLACEZ
-                    userPoolClientId: "7uds7sfiu28ibsnodppp55slt0", // REMPLACEZ
-                    loginWith: {
-                        oauth: {
-                            domain: "https://eu-west-3nhshjr8ai.auth.eu-west-3.amazoncognito.com", // REMPLACEZ
-                            scopes: ["email", "openid", "profile"],
-                            redirectSignIn: [window.location.origin],
-                            redirectSignOut: [window.location.origin],
-                            responseType: "code"
+        // --- TOUT LE CODE EST MAINTENANT DANS CET ÉVÉNEMENT ---
+        // On attend que le DOM (la page) soit entièrement chargé avant d'exécuter le code.
+        window.addEventListener('DOMContentLoaded', () => {
+            const awsconfig = {
+                Auth: {
+                    Cognito: {
+                        userPoolId: "eu-west-3_nHShJr8AI", // REMPLACEZ
+                        userPoolClientId: "7uds7sfiu28ibsnodppp55slt0", // REMPLACEZ
+                        loginWith: {
+                            oauth: {
+                                domain: "https://eu-west-3nhshjr8ai.auth.eu-west-3.amazoncognito.com", // REMPLACEZ
+                                scopes: ["email", "openid", "profile"],
+                                redirectSignIn: [window.location.origin],
+                                redirectSignOut: [window.location.origin],
+                                responseType: "code"
+                            }
                         }
                     }
                 }
-            }
-        };
-        
-        // CORRECTION ICI : On utilise directement l'objet global "Amplify"
-        Amplify.configure(awsconfig);
+            };
+            
+            const { Amplify, Auth } = aws_amplify; // Ce nom est correct maintenant
+            Amplify.configure(awsconfig);
 
-        const mainContent = document.getElementById('main-content');
-        const loadingDiv = document.getElementById('loading-initial');
-        const welcomeMessage = document.getElementById('welcome-message');
-        const signOutButton = document.getElementById('signOutButton');
+            const mainContent = document.getElementById('main-content');
+            const loadingDiv = document.getElementById('loading-initial');
+            const welcomeMessage = document.getElementById('welcome-message');
+            const signOutButton = document.getElementById('signOutButton');
 
-        // Fonction pour vérifier l'utilisateur au chargement
-        const checkUser = async () => {
-            try {
-                // CORRECTION ICI : on utilise Amplify.Auth
-                const session = await Amplify.Auth.fetchAuthSession();
-                if (session.tokens) {
-                    const userInfo = await Amplify.Auth.getCurrentUser();
-                    console.log('Utilisateur connecté:', userInfo);
-                    welcomeMessage.textContent = `Bienvenue, ${userInfo.username}`;
-                    loadingDiv.style.display = 'none';
-                    mainContent.style.display = 'block';
+            const checkUser = async () => {
+                try {
+                    const session = await Auth.fetchAuthSession();
+                    if (session.tokens) {
+                        const userInfo = await Auth.getCurrentUser();
+                        console.log('Utilisateur connecté:', userInfo);
+                        welcomeMessage.textContent = `Bienvenue, ${userInfo.username}`;
+                        loadingDiv.style.display = 'none';
+                        mainContent.style.display = 'block';
+                    }
+                } catch (error) {
+                    console.log('Utilisateur non connecté, redirection...', error);
+                    Auth.signInWithRedirect();
                 }
-            } catch (error) {
-                console.log('Utilisateur non connecté, redirection...', error);
-                // CORRECTION ICI : on utilise Amplify.Auth
-                Amplify.Auth.signInWithRedirect();
+            };
+            
+            signOutButton.addEventListener('click', async () => {
+                try {
+                    await Auth.signOut();
+                } catch (error) {
+                    console.error('Erreur lors de la déconnexion:', error);
+                }
+            });
+            
+            checkUser();
+
+            // --- Le reste du code de recherche est ici ---
+            const apiUrl = "https://g8y8jr935c.execute-api.eu-west-3.amazonaws.com"; 
+            const searchButton = document.getElementById('searchButton');
+            const plaqueInput = document.getElementById('plaqueInput');
+            const resultsDiv = document.getElementById('results');
+
+            async function searchPlaque() {
+                // ...
             }
-        };
-        
-        // Gère la déconnexion
-        signOutButton.addEventListener('click', async () => {
-            try {
-                // CORRECTION ICI : on utilise Amplify.Auth
-                await Amplify.Auth.signOut();
-            } catch (error) {
-                console.error('Erreur lors de la déconnexion:', error);
+            
+            function displaySuccess(data) {
+                 // ...
             }
+
+            function displayError(message) {
+                 // ...
+            }
+
+            searchButton.addEventListener('click', searchPlaque);
+            plaqueInput.addEventListener('keyup', (event) => {
+                if (event.key === 'Enter') {
+                    searchPlaque();
+                }
+            });
         });
-        
-        checkUser();
-
-        // --- Le reste du code de recherche est ici (inchangé) ---
-        const apiUrl = "https://g8y8jr935c.execute-api.eu-west-3.amazonaws.com"; 
-        const searchButton = document.getElementById('searchButton');
-        const plaqueInput = document.getElementById('plaqueInput');
-        const resultsDiv = document.getElementById('results');
-
-        async function searchPlaque() {
-            // ... (la fonction de recherche n'a pas besoin de changer pour l'instant)
-        }
-        
-        function displaySuccess(data) {
-             // ... (la fonction d'affichage n'a pas besoin de changer pour l'instant)
-        }
-
-        function displayError(message) {
-             // ... (la fonction d'affichage n'a pas besoin de changer pour l'instant)
-        }
-
-        searchButton.addEventListener('click', searchPlaque);
-        plaqueInput.addEventListener('keyup', (event) => {
-            if (event.key === 'Enter') {
-                searchPlaque();
-            }
-        });
-
     </script>
 </body>
 </html>
