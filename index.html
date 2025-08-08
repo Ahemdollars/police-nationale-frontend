@@ -11,9 +11,9 @@
         .card-header { background-color: #0d6efd; color: white; }
         #results { min-height: 100px; }
         .spinner-border { width: 3rem; height: 3rem; }
-        /* Style pour cacher le contenu principal au début */
         #main-content { display: none; }
     </style>
+    <script src="https://unpkg.com/aws-amplify@6/dist/aws-amplify.min.js"></script>
 </head>
 <body>
     <div id="loading-initial" class="d-flex justify-content-center align-items-center vh-100">
@@ -41,25 +41,28 @@
         </div>
     </div>
 
-    <script src="https://unpkg.com/amazon-cognito-identity-js/dist/amazon-cognito-identity.min.js"></script>
-    <script src="https://unpkg.com/@aws-amplify/auth/dist/aws-amplify-auth.min.js"></script>
-
     <script>
         // --- CONFIGURATION D'AMPLIFY ---
         const awsconfig = {
-            "aws_project_region": "eu-west-3",
-            "aws_cognito_region": "eu-west-3",
-            "aws_user_pools_id": "eu-west-3_nHShJr8AI", // REMPLACEZ
-            "aws_user_pools_web_client_id": "7uds7sfiu28ibsnodppp55slt0", // REMPLACEZ
-            "oauth": {
-                "domain": "https://eu-west-3nhshjr8ai.auth.eu-west-3.amazoncognito.com", // REMPLACEZ (ex: police-nationale-mali.auth.eu-west-3.amazoncognito.com)
-                "scope": ["email", "openid", "profile"],
-                "redirectSignIn": window.location.origin,
-                "redirectSignOut": window.location.origin,
-                "responseType": "code"
+            Auth: {
+                Cognito: {
+                    userPoolId: "eu-west-3_nHShJr8AI", // REMPLACEZ
+                    userPoolClientId: "7uds7sfiu28ibsnodppp55slt0", // REMPLACEZ
+                    loginWith: {
+                        oauth: {
+                            domain: "https://eu-west-3nhshjr8ai.auth.eu-west-3.amazoncognito.com", // REMPLACEZ
+                            scopes: ["email", "openid", "profile"],
+                            redirectSignIn: [window.location.origin],
+                            redirectSignOut: [window.location.origin],
+                            responseType: "code"
+                        }
+                    }
+                }
             }
         };
 
+        // On utilise la nouvelle syntaxe aws_amplify
+        const { Amplify, Auth } = aws_amplify;
         Amplify.configure(awsconfig);
 
         const mainContent = document.getElementById('main-content');
@@ -67,30 +70,34 @@
         const welcomeMessage = document.getElementById('welcome-message');
         const signOutButton = document.getElementById('signOutButton');
 
-        // Vérifie si l'utilisateur est connecté au chargement de la page
-        window.addEventListener('DOMContentLoaded', async () => {
+        // Fonction pour vérifier l'utilisateur au chargement
+        const checkUser = async () => {
             try {
-                const user = await Amplify.Auth.currentAuthenticatedUser();
-                console.log('Utilisateur connecté:', user);
-                welcomeMessage.textContent = `Bienvenue, ${user.username}`;
-                loadingDiv.style.display = 'none';
-                mainContent.style.display = 'block';
+                const user = await Auth.fetchAuthSession();
+                if (user.tokens) {
+                    const userInfo = await Auth.getCurrentUser();
+                    console.log('Utilisateur connecté:', userInfo);
+                    welcomeMessage.textContent = `Bienvenue, ${userInfo.username}`;
+                    loadingDiv.style.display = 'none';
+                    mainContent.style.display = 'block';
+                }
             } catch (error) {
                 console.log('Utilisateur non connecté, redirection...', error);
-                // Si non connecté, redirige vers la page de connexion hébergée par Cognito
-                Amplify.Auth.federatedSignIn();
+                Auth.signInWithRedirect();
             }
-        });
+        };
         
         // Gère la déconnexion
         signOutButton.addEventListener('click', async () => {
             try {
-                await Amplify.Auth.signOut();
-                window.location.reload();
+                await Auth.signOut();
             } catch (error) {
                 console.error('Erreur lors de la déconnexion:', error);
             }
         });
+        
+        // On appelle la vérification au chargement
+        checkUser();
 
         // --- Le reste du code de recherche est ici (inchangé) ---
         const apiUrl = "https://g8y8jr935c.execute-api.eu-west-3.amazonaws.com"; 
@@ -99,9 +106,16 @@
         const resultsDiv = document.getElementById('results');
 
         async function searchPlaque() {
-            //... (la fonction de recherche reste la même)
+            // ... (la fonction de recherche n'a pas besoin de changer pour l'instant)
         }
-        //... (les fonctions d'affichage restent les mêmes)
+        
+        function displaySuccess(data) {
+             // ... (la fonction d'affichage n'a pas besoin de changer pour l'instant)
+        }
+
+        function displayError(message) {
+             // ... (la fonction d'affichage n'a pas besoin de changer pour l'instant)
+        }
 
         searchButton.addEventListener('click', searchPlaque);
         plaqueInput.addEventListener('keyup', (event) => {
