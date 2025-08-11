@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Police Nationale - Portail</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/aws-amplify/5.3.12/aws-amplify.min.js"></script>
+    <script src="./aws-amplify.min.js"></script>
     <style>
         body { background-color: #f0f2f5; }
         .container { max-width: 700px; }
@@ -30,59 +30,131 @@
         <div class="card shadow">
             <h5 class="card-header text-center">Police Nationale - Recherche de Véhicule</h5>
             <div class="card-body">
-                 </div>
+                <div class="input-group mb-3">
+                    <input type="text" id="plaqueInput" class="form-control form-control-lg" placeholder="Entrez la plaque d'immatriculation">
+                    <button class="btn btn-primary" type="button" id="searchButton">Rechercher</button>
+                </div>
+                <div id="results" class="mt-4">
+                    <div class="text-center text-muted">Veuillez entrer une plaque pour lancer la recherche.</div>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
-        // --- CONFIGURATION D'AMPLIFY (Syntaxe Version 5) ---
-        Amplify.configure({
-            Auth: {
-                userPoolId: "eu-west-3_nHShJr8AI",
-                userPoolWebClientId: "VO7uds7sfiu28ibsnodppp55slt0", // Attention, le nom de cette clé est différent
-                oauth: {
-                    domain: "https://eu-west-3nhshjr8ai.auth.eu-west-3.amazoncognito.com",
-                    scope: ['email', 'openid', 'profile'],
-                    redirectSignIn: window.location.origin,
-                    redirectSignOut: window.location.origin,
-                    responseType: 'code'
+        window.addEventListener('DOMContentLoaded', () => {
+            // --- CONFIGURATION D'AMPLIFY (Syntaxe Version 5) ---
+            Amplify.configure({
+                Auth: {
+                    userPoolId: "eu-west-3_nHShJr8AI",
+                    userPoolWebClientId: "7uds7sfiu28ibsnodppp55slt0",
+                    oauth: {
+                        domain: "https://eu-west-3nhshjr8ai.auth.eu-west-3.amazoncognito.com",
+                        scope: ['email', 'openid', 'profile'],
+                        redirectSignIn: window.location.origin,
+                        redirectSignOut: window.location.origin,
+                        responseType: 'code'
+                    }
+                }
+            });
+
+            const mainContent = document.getElementById('main-content');
+            const loadingDiv = document.getElementById('loading-initial');
+            const welcomeMessage = document.getElementById('welcome-message');
+            const signOutButton = document.getElementById('signOutButton');
+            const { Auth } = Amplify;
+
+            // Fonction pour vérifier l'utilisateur
+            const checkUser = () => {
+                Auth.currentAuthenticatedUser()
+                    .then(user => {
+                        console.log('Utilisateur connecté:', user);
+                        welcomeMessage.textContent = `Bienvenue, ${user.username}`;
+                        loadingDiv.style.display = 'none';
+                        mainContent.style.display = 'block';
+                    })
+                    .catch(err => {
+                        console.log('Utilisateur non connecté, redirection...', err);
+                        Auth.federatedSignIn();
+                    });
+            };
+            
+            // Gère la déconnexion
+            signOutButton.addEventListener('click', () => {
+                Auth.signOut().catch(err => console.error(err));
+            });
+            
+            // On appelle la vérification au chargement
+            checkUser();
+            
+            // --- Code pour la recherche de plaque ---
+            const apiUrl = "https://g8y8jr935c.execute-api.eu-west-3.amazonaws.com"; 
+            const searchButton = document.getElementById('searchButton');
+            const plaqueInput = document.getElementById('plaqueInput');
+            const resultsDiv = document.getElementById('results');
+
+            async function searchPlaque() {
+                const plaque = plaqueInput.value.trim().toUpperCase();
+                if (!plaque) {
+                    alert('Veuillez entrer un numéro de plaque.');
+                    return;
+                }
+                resultsDiv.innerHTML = `<div class="d-flex justify-content-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>`;
+                try {
+                    const token = (await Auth.currentSession()).getIdToken().getJwtToken();
+                    const response = await fetch(`${apiUrl}/vehicule/${plaque}`, {
+                        headers: {
+                            'Authorization': token
+                        }
+                    });
+                    const data = await response.json();
+                    if (response.ok) {
+                        displaySuccess(data);
+                    } else {
+                        displayError(data.message);
+                    }
+                } catch (error) {
+                    console.error('Erreur réseau:', error);
+                    displayError('Erreur de connexion au serveur.');
                 }
             }
+            
+            function displaySuccess(data) {
+                resultsDiv.innerHTML = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Véhicule</h5>
+                            <ul class="list-group">
+                                <li class="list-group-item"><strong>Plaque:</strong> ${data.vehicule.plaque_immatriculation}</li>
+                                <li class="list-group-item"><strong>Type:</strong> ${data.vehicule.type_engin}</li>
+                                <li class="list-group-item"><strong>Marque:</strong> ${data.vehicule.marque} ${data.vehicule.modele}</li>
+                                <li class="list-group-item"><strong>Statut:</strong> <span class="badge bg-success">${data.vehicule.statut}</span></li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Propriétaire</h5>
+                            <ul class="list-group">
+                                <li class="list-group-item"><strong>Nom:</strong> ${data.proprietaire.nom} ${data.proprietaire.prenoms}</li>
+                                <li class="list-group-item"><strong>Téléphone:</strong> ${data.proprietaire.telephone}</li>
+                                <li class="list-group-item"><strong>Adresse:</strong> ${data.proprietaire.adresse}</li>
+                                <li class="list-group-item"><strong>Profession:</strong> ${data.proprietaire.profession}</li>
+                            </ul>
+                        </div>
+                    </div>
+                `;
+            }
+
+            function displayError(message) {
+                resultsDiv.innerHTML = `<div class="alert alert-danger text-center">${message}</div>`;
+            }
+
+            searchButton.addEventListener('click', searchPlaque);
+            plaqueInput.addEventListener('keyup', (event) => {
+                if (event.key === 'Enter') {
+                    searchPlaque();
+                }
+            });
         });
-
-        const mainContent = document.getElementById('main-content');
-        const loadingDiv = document.getElementById('loading-initial');
-        const welcomeMessage = document.getElementById('welcome-message');
-        const signOutButton = document.getElementById('signOutButton');
-
-        // On utilise la syntaxe de la Version 5
-        const { Auth } = Amplify;
-
-        // Fonction pour vérifier l'utilisateur
-        const checkUser = () => {
-            Auth.currentAuthenticatedUser()
-                .then(user => {
-                    console.log('Utilisateur connecté:', user);
-                    welcomeMessage.textContent = `Bienvenue, ${user.username}`;
-                    loadingDiv.style.display = 'none';
-                    mainContent.style.display = 'block';
-                })
-                .catch(err => {
-                    console.log('Utilisateur non connecté, redirection...', err);
-                    Auth.federatedSignIn();
-                });
-        };
-        
-        // Gère la déconnexion
-        signOutButton.addEventListener('click', () => {
-            Auth.signOut().catch(err => console.error(err));
-        });
-        
-        // On appelle la vérification au chargement
-        checkUser();
-
-        // --- Le code pour la recherche de plaque reste le même ---
-
     </script>
 </body>
 </html>
